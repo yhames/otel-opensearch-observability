@@ -1,0 +1,55 @@
+services:
+  opensearch:
+    image: opensearchproject/opensearch:2.19.4
+    container_name: opensearch
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=GBhYpN9r7t
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+    networks: [ otel ]
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.19.4
+    container_name: opensearch-dashboards
+    ports:
+      - "5601:5601"
+    environment:
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+      - OPENSEARCH_HOSTS=http://opensearch:9200
+    networks: [ otel ]
+    depends_on: [ opensearch ]
+
+  data-prepper:
+    image: opensearchproject/data-prepper:2.13.0
+    container_name: data-prepper
+    volumes:
+      - ./pipelines.yaml:/usr/share/data-prepper/pipelines/pipelines.yaml
+      - ./data-prepper-config.yaml:/usr/share/data-prepper/config/data-prepper-config.yaml
+    ports:
+      - "21890:21890" # Data Prepper gRPC
+      - "21891:21891" # Data Prepper HTTP
+    networks: [ otel ]
+    depends_on: [ opensearch ]
+
+  otel-collector:
+    image: otel/opentelemetry-collector:0.143.0
+    container_name: otel-collector
+    command: [ "--config=/etc/otelcol/config.yaml" ]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol/config.yaml
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+    networks: [ otel ]
+    depends_on: [ data-prepper ]
+
+networks:
+  otel:
+    driver: bridge
