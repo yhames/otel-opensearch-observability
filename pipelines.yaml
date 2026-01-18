@@ -1,13 +1,68 @@
-trace-pipeline:
+log-pipeline:
   source:
-    otel_trace_source:
-      port: 21890
+    otel_logs_source:
+      unframed_requests: true
+      port: 21892
       ssl: false
-
-  processor:
-    - service_map: {}
-
+      output_format: otel
   sink:
     - opensearch:
-        hosts: ["http://opensearch:9200"]
+        hosts: [ "http://opensearch:9200" ]
+        index_type: log-analytics-plain
+        username: admin
+        password: GBhYpN9r7t
+        insecure: true
+
+metric-pipeline:
+  source:
+    otel_metrics_source:
+      unframed_requests: true
+      port: 21891
+      ssl: false
+  sink:
+    - opensearch:
+        hosts: [ "http://opensearch:9200" ]
+        index_type: metric-analytics-plain
+        username: admin
+        password: GBhYpN9r7t
+        insecure: true
+
+entry-pipeline:
+  source:
+    otel_trace_source:
+      unframed_requests: true
+      port: 21890
+      ssl: false
+  sink:
+    - pipeline:
+        name: "trace-pipeline"
+    - pipeline:
+        name: "service-map-pipeline"
+
+trace-pipeline:
+  source:
+    pipeline:
+      name: "entry-pipeline"
+  processor:
+    - otel_trace_raw:
+  sink:
+    - opensearch:
+        hosts: [ "http://opensearch:9200" ]
         index_type: trace-analytics-raw
+        username: admin
+        password: GBhYpN9r7t
+        insecure: true
+
+service-map-pipeline:
+  source:
+    pipeline:
+      name: "entry-pipeline"
+  processor:
+    - service_map:
+  sink:
+    - opensearch:
+        hosts: [ "http://opensearch:9200" ]
+        index_type: trace-analytics-service-map
+        username: admin
+        password: GBhYpN9r7t
+        insecure: true

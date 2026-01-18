@@ -13,7 +13,12 @@ services:
         hard: -1
     ports:
       - "9200:9200"
-    networks: [ otel ]
+    networks: [ otel-network ]
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
 
   opensearch-dashboards:
     image: opensearchproject/opensearch-dashboards:2.19.4
@@ -23,8 +28,15 @@ services:
     environment:
       - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
       - OPENSEARCH_HOSTS=http://opensearch:9200
-    networks: [ otel ]
-    depends_on: [ opensearch ]
+    networks: [ otel-network ]
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -sf http://localhost:5601/api/status || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
 
   data-prepper:
     image: opensearchproject/data-prepper:2.13.0
@@ -33,10 +45,13 @@ services:
       - ./pipelines.yaml:/usr/share/data-prepper/pipelines/pipelines.yaml
       - ./data-prepper-config.yaml:/usr/share/data-prepper/config/data-prepper-config.yaml
     ports:
-      - "21890:21890" # Data Prepper gRPC
-      - "21891:21891" # Data Prepper HTTP
-    networks: [ otel ]
-    depends_on: [ opensearch ]
+      - "21890:21890" # Trace
+      - "21891:21891" # Metric
+      - "21892:21892" # Log
+    networks: [ otel-network ]
+    depends_on:
+      opensearch:
+        condition: service_healthy
 
   otel-collector:
     image: otel/opentelemetry-collector:0.143.0
@@ -45,11 +60,18 @@ services:
     volumes:
       - ./otel-collector-config.yaml:/etc/otelcol/config.yaml
     ports:
+      - "13133:13133" # Health Check
+      - "1777:1777"   # pprof
+      - "55679:55679" # zPages
       - "4317:4317" # OTLP gRPC
       - "4318:4318" # OTLP HTTP
-    networks: [ otel ]
-    depends_on: [ data-prepper ]
+    networks: [ otel-network ]
+    depends_on:
+      opensearch:
+        condition: service_healthy
+      data-prepper:
+        condition: service_started
 
 networks:
-  otel:
+  otel-network:
     driver: bridge
