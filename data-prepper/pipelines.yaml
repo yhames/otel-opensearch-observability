@@ -5,12 +5,14 @@ log-pipeline:
       port: 21892
       ssl: false
       output_format: otel
+  processor:
+    - date:
+        from_time_received: true
+        destination: "@timestamp"
   sink:
     - opensearch:
         hosts: [ "http://opensearch:9200" ]
-        index_type: log-analytics-plain
-        username: admin
-        password: GBhYpN9r7t
+        index: logs-otel-v1-%{+yyyy.MM.dd}
         insecure: true
 
 metric-pipeline:
@@ -19,12 +21,12 @@ metric-pipeline:
       unframed_requests: true
       port: 21891
       ssl: false
+  processor:
+    - otel_metrics:
   sink:
     - opensearch:
         hosts: [ "http://opensearch:9200" ]
-        index_type: metric-analytics-plain
-        username: admin
-        password: GBhYpN9r7t
+        index: ss4o_metrics-otel-%{+yyyy.MM.dd}
         insecure: true
 
 entry-pipeline:
@@ -44,13 +46,13 @@ trace-pipeline:
     pipeline:
       name: "entry-pipeline"
   processor:
-    - otel_trace_raw:
+    - date:
+        from_time_received: true
+        destination: "@timestamp"
   sink:
     - opensearch:
         hosts: [ "http://opensearch:9200" ]
         index_type: trace-analytics-raw
-        username: admin
-        password: GBhYpN9r7t
         insecure: true
 
 service-map-pipeline:
@@ -63,6 +65,4 @@ service-map-pipeline:
     - opensearch:
         hosts: [ "http://opensearch:9200" ]
         index_type: trace-analytics-service-map
-        username: admin
-        password: GBhYpN9r7t
         insecure: true

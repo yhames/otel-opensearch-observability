@@ -4,73 +4,87 @@ services:
     container_name: opensearch
     environment:
       - discovery.type=single-node
-      - plugins.security.disabled=true
+      - DISABLE_SECURITY_PLUGIN=true
       - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
-      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=GBhYpN9r7t
     ulimits:
       memlock:
         soft: -1
         hard: -1
     ports:
       - "9200:9200"
-    networks: [ otel-network ]
     healthcheck:
       test: [ "CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1" ]
       interval: 10s
       timeout: 5s
-      retries: 12
+    networks: [ otel-network ]
 
   opensearch-dashboards:
     image: opensearchproject/opensearch-dashboards:2.19.4
     container_name: opensearch-dashboards
-    ports:
-      - "5601:5601"
     environment:
       - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
       - OPENSEARCH_HOSTS=http://opensearch:9200
-    networks: [ otel-network ]
+    ports:
+      - "5601:5601"
     depends_on:
       opensearch:
         condition: service_healthy
-    healthcheck:
-      test: [ "CMD-SHELL", "curl -sf http://localhost:5601/api/status || exit 1" ]
-      interval: 10s
-      timeout: 5s
-      retries: 12
+    networks: [ otel-network ]
 
   data-prepper:
     image: opensearchproject/data-prepper:2.13.0
     container_name: data-prepper
     volumes:
-      - ./pipelines.yaml:/usr/share/data-prepper/pipelines/pipelines.yaml
-      - ./data-prepper-config.yaml:/usr/share/data-prepper/config/data-prepper-config.yaml
+      - ./data-prepper/pipelines.yaml:/usr/share/data-prepper/pipelines/pipelines.yaml:ro
+      - ./data-prepper/data-prepper-config.yaml:/usr/share/data-prepper/config/data-prepper-config.yaml:ro
     ports:
+      - "4900:4900" # Data Prepper HTTP
       - "21890:21890" # Trace
       - "21891:21891" # Metric
       - "21892:21892" # Log
-    networks: [ otel-network ]
     depends_on:
       opensearch:
         condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -sf http://localhost:4900/list || exit 1" ]
+      interval: 10s
+      timeout: 5s
+    networks: [ otel-network ]
 
   otel-collector:
     image: otel/opentelemetry-collector:0.143.0
     container_name: otel-collector
     command: [ "--config=/etc/otelcol/config.yaml" ]
     volumes:
-      - ./otel-collector-config.yaml:/etc/otelcol/config.yaml
+      - ./otel-collector/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+      - ./otel-collector-output:/output:rw  # For debug exporter output
     ports:
       - "13133:13133" # Health Check
       - "1777:1777"   # pprof
       - "55679:55679" # zPages
       - "4317:4317" # OTLP gRPC
       - "4318:4318" # OTLP HTTP
-    networks: [ otel-network ]
     depends_on:
       opensearch:
         condition: service_healthy
       data-prepper:
-        condition: service_started
+        condition: service_healthy
+    networks: [ otel-network ]
+
+  ism-policy-applier:
+    image: curlimages/curl:8.17.0
+    container_name: ism-policy-applier
+    environment:
+      - OPENSEARCH_HOST=http://opensearch:9200
+    volumes:
+      - ./ism-policies:/ism-policies:ro
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    working_dir: /ism-policies
+    entrypoint: /bin/sh
+    command: [ "-c", "sleep 5 && sh apply-policies.sh" ]
+    networks: [ otel-network ]
 
 networks:
   otel-network:

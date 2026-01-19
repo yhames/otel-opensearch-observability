@@ -1,0 +1,68 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s # Check memory usage every second
+    limit_mib: 1024 # Set memory limit to 1024 MiB
+    spike_limit_mib: 128 # Allow temporary spikes of 128 MiB
+  batch:
+    timeout: 2s # Maximum time to wait before sending a batch
+    send_batch_size: 512 # Number of items to send in a batch
+    send_batch_max_size: 1024 # Maximum number of items in a batch
+  attributes:
+    actions:
+      - key: environment # Custom attribute key
+        value: production # production | staging | development
+        action: insert # insert | update | upsert | delete
+
+exporters:
+  otlp/logs:
+    endpoint: http://data-prepper:21892
+    tls:
+      insecure: true
+  otlp/metrics:
+    endpoint: http://data-prepper:21891
+    tls:
+      insecure: true
+  otlp/traces:
+    endpoint: http://data-prepper:21890
+    tls:
+      insecure: true
+  debug:
+    verbosity: basic # basic | normal | detailed
+  file/logs:
+    path: /output/logs.log
+  file/metrics:
+    path: /output/metrics.log
+  file/traces:
+    path: /output/traces.log
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  pprof:
+    endpoint: 0.0.0.0:1777
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [ health_check, pprof, zpages ]
+  pipelines:
+    logs:
+      receivers: [ otlp ]
+      processors: [ memory_limiter, batch, attributes ]
+      exporters: [ otlp/logs, file/logs ]
+    metrics:
+      receivers: [ otlp ]
+      processors: [ memory_limiter, batch, attributes ]
+      exporters: [ otlp/metrics, file/metrics ]
+    traces:
+      receivers: [ otlp ]
+      processors: [ memory_limiter, batch, attributes ]
+      exporters: [ otlp/traces, file/traces, debug ]
