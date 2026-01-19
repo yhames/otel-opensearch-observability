@@ -37,3 +37,6 @@ out/
 .vscode/
 
 otel-collector-output/
+.venv/
+*.pyc
+__pycache__/
