@@ -23,12 +23,17 @@ apply_policy() {
   
   echo "Applying policy: $policy_id from $policy_file"
   
-  if curl -X PUT "$OPENSEARCH_HOST/_plugins/_ism/policies/$policy_id?pretty" \
+  status=$(curl -s -o /dev/null -w "%{http_code}" \
+    -X PUT "$OPENSEARCH_HOST/_plugins/_ism/policies/$policy_id?pretty" \
     -H "Content-Type: application/json" \
-    -d @"$policy_file"; then
-    echo "✓ Policy $policy_id applied successfully"
+    -d @"$policy_file")
+
+  if [ "$status" = "200" ] || [ "$status" = "201" ]; then
+    echo "=> Policy $policy_id applied successfully"
+  elif [ "$status" = "409" ]; then
+    echo "=> Policy $policy_id already exists (conflict)"
   else
-    echo "✗ Failed to apply policy $policy_id"
+    echo "=> Failed to apply policy $policy_id (HTTP $status)"
     return 1
   fi
 }

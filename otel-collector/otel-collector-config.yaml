@@ -37,11 +37,11 @@ exporters:
   debug:
     verbosity: basic # basic | normal | detailed
   file/logs:
-    path: /output/logs.log
+    path: /output/otel-logs.log
   file/metrics:
-    path: /output/metrics.log
+    path: /output/otel-metrics.log
   file/traces:
-    path: /output/traces.log
+    path: /output/otel-traces.log
 
 extensions:
   health_check:
