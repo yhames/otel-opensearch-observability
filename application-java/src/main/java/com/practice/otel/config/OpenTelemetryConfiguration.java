@@ -1,4 +1,4 @@
-package com.practice.otel;
+package com.practice.otel.config;
 
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.binder.jvm.ClassLoaderMetrics;

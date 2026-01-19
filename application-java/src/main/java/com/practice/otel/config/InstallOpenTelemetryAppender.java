@@ -1,4 +1,4 @@
-package com.practice.otel;
+package com.practice.otel.config;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender;
