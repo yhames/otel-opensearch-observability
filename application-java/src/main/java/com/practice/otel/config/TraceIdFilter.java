@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Objects;
 
 /**
  * W3C Trace Context 표준에 따라 HTTP 응답 헤더에 traceparent 값을 추가하는 필터
@@ -30,7 +31,7 @@ class TraceIdFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         TraceContext context = this.tracer.currentTraceContext().context();
 
-        if (context != null) {
+        if (Objects.nonNull(context)) {
             String traceId = context.traceId();
             String spanId = context.spanId();
 
@@ -46,7 +47,7 @@ class TraceIdFilter extends OncePerRequestFilter {
     }
 
     private static boolean validateTraceContext(String traceId, String spanId) {
-        return traceId != null && spanId != null;
+        return Objects.nonNull(traceId) && Objects.nonNull(spanId);
     }
 
 }
