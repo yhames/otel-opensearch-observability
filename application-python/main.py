@@ -1,6 +1,7 @@
 import logging
 
 import uvicorn
+
 from app import create_app
 from app.config import get_settings
 
